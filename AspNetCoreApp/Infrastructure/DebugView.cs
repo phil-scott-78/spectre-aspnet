@@ -10,12 +10,28 @@ using Spectre.Console.Cli;
 
 namespace AspNetCoreApp.Infrastructure
 {
+    internal static class ProviderExtensions
+    {
+        public static string ToPrettyString(this IConfigurationProvider provider)
+        {
+            var s = provider.ToString();
+            var typeName = provider.GetType().ToString();
+
+            return s != typeName ? s : provider.GetType().Name;
+        }
+    }
+    
     internal class DebugView : Command<DebugView.Settings>
     {
-        public class Settings : CommandSettings, IHostBuilderInput
-        {
-            public IHostBuilder HostBuilder { get; set; }
+        private readonly IHostBuilder _hostBuilder;
 
+        public DebugView(IHostBuilder hostBuilder)
+        {
+            _hostBuilder = hostBuilder;
+        }
+
+        public class Settings : CommandSettings
+        {
             [Description("Show environmental variables")]
             [CommandOption("--env")]
             public bool ShowEnvironmental { get; set; }
@@ -23,7 +39,7 @@ namespace AspNetCoreApp.Infrastructure
 
         public override int Execute(CommandContext context, Settings settings)
         {
-            using var host = settings.HostBuilder.Build();
+            using var host = _hostBuilder.Build();
             var root = (IConfigurationRoot) host.Services.GetService<IConfiguration>();
             if (root == null) throw new Exception("Unable to resolve IConfiguration");
 
@@ -60,7 +76,7 @@ namespace AspNetCoreApp.Infrastructure
                 var (value, provider) = GetValueAndProvider(root, child.Path);
 
                 var name = provider != null
-                    ? $"[blue]{child.Key}[/][grey]=[/][yellow]{value}[/] [grey]{provider}[/]"
+                    ? $"[blue]{child.Key}[/][grey]=[/][yellow]{value}[/] [grey]{provider.ToPrettyString()}[/]"
                     : $"[green]{child.Key}[/]";
 
                 var newNode = parentNode switch
@@ -77,7 +93,7 @@ namespace AspNetCoreApp.Infrastructure
 
                     if (configurationProvider.TryGet(child.Path, out var overridenValue))
                     {
-                        newNode.AddNode($"[strikethrough]{overridenValue}[/] : [grey]{configurationProvider}[/]");
+                        newNode.AddNode($"[strikethrough]{overridenValue}[/] : [grey]{configurationProvider.ToPrettyString()}[/]");
                     }
                 }
 
